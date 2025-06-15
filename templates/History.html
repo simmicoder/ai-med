@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Vitals History</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <h1>Vitals Over Time</h1>
+
+    <canvas id="tempChart" width="400" height="200"></canvas>
+    <canvas id="hrChart" width="400" height="200"></canvas>
+    <canvas id="bpChart" width="400" height="200"></canvas>
+
+    <script>
+        const labels = {{ labels|tojson }};
+        const tempData = {{ temperatures|tojson }};
+        const hrData = {{ heartrates|tojson }};
+        const bpData = {{ bps|tojson }};
+
+        new Chart(document.getElementById("tempChart"), {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Temperature (°C)',
+                    data: tempData,
+                    borderColor: 'orange',
+                    backgroundColor: 'rgba(255,165,0,0.2)',
+                    tension: 0.3
+                }]
+            }
+        });
+
+        new Chart(document.getElementById("hrChart"), {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Heart Rate (bpm)',
+                    data: hrData,
+                    borderColor: 'red',
+                    backgroundColor: 'rgba(255,0,0,0.2)',
+                    tension: 0.3
+                }]
+            }
+        });
+
+        new Chart(document.getElementById("bpChart"), {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Systolic BP (mmHg)',
+                    data: bpData,
+                    borderColor: 'blue',
+                    backgroundColor: 'rgba(0,0,255,0.2)',
+                    tension: 0.3
+                }]
+            }
+        });
+    </script>
+
+    <a href="/">← Back to Home</a>
+</body>
+</html>

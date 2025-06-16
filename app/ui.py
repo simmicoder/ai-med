@@ -1,38 +1,30 @@
-from flask import Flask, render_template, request
-import sqlite3
-import datetime
-import os
+from flask import Flask, render_template, request, jsonify
+import sqlite3, datetime, random
 
 app = Flask(__name__, template_folder="../templates", static_folder="../static")
 
 def get_db_connection():
-    db_path = "/tmp/meds.db"
-    
-    # Create DB and table if not exists (for first-time deploys)
-    if not os.path.exists(db_path):
-        conn = sqlite3.connect(db_path)
-        conn.execute('''
-            CREATE TABLE IF NOT EXISTS diagnosis (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                symptoms TEXT,
-                temperature TEXT,
-                heartrate TEXT,
-                bloodpressure TEXT,
-                latitude REAL,
-                longitude REAL,
-                timestamp TEXT
-            )
-        ''')
-        conn.commit()
-        conn.close()
-    
-    conn = sqlite3.connect(db_path)
+    conn = sqlite3.connect("../databases/meds.db")
     conn.row_factory = sqlite3.Row
     return conn
 
+def generate_fake_vitals():
+    return {
+        "Temperature": f"{round(random.uniform(97.5, 99.5), 1)} °F",
+        "Heart Rate": f"{random.randint(60, 100)} bpm",
+        "Blood Pressure": f"{random.randint(110, 130)}/{random.randint(70, 85)} mmHg",
+        "Latitude": "28.6139",
+        "Longitude": "77.2090"
+    }
+
 @app.route("/")
 def home():
-    return render_template("home.html", vitals={})
+    vitals = generate_fake_vitals()
+    return render_template("home.html", vitals=vitals)
+
+@app.route("/vitals")
+def get_vitals():
+    return jsonify(generate_fake_vitals())
 
 @app.route("/check", methods=["POST"])
 def check():
@@ -44,20 +36,39 @@ def check():
     lon = request.form.get("longitude")
 
     vitals = {
-        "Temperature": temp + " °C" if temp else "N/A",
-        "Heart Rate": hr + " bpm" if hr else "N/A",
-        "Blood Pressure": bp if bp else "N/A",
-        "Latitude": lat if lat else "N/A",
-        "Longitude": lon if lon else "N/A",
+        "Temperature": temp,
+        "Heart Rate": hr,
+        "Blood Pressure": bp,
+        "Latitude": lat,
+        "Longitude": lon,
     }
 
     result = "You may have a mild condition. Please consult a doctor if symptoms persist."
-    suggested_meds = [
-        {"name": "Paracetamol", "dosage": "500mg every 6 hours"},
-        {"name": "Ibuprofen", "dosage": "200mg twice daily"}
-    ] if "fever" in symptoms.lower() else []
+    suggested_meds = []
+
+    if "fever" in symptoms.lower():
+        suggested_meds = [
+            {"name": "Paracetamol", "dosage": "500mg every 6 hours"},
+            {"name": "Ibuprofen", "dosage": "200mg twice daily"}
+        ]
+    elif "cough" in symptoms.lower():
+        suggested_meds = [{"name": "Cough Syrup", "dosage": "10ml twice daily"}]
+    elif "headache" in symptoms.lower():
+        suggested_meds = [{"name": "Aspirin", "dosage": "300mg once daily"}]
 
     conn = get_db_connection()
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS diagnosis (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            symptoms TEXT,
+            temperature TEXT,
+            heartrate TEXT,
+            bloodpressure TEXT,
+            latitude REAL,
+            longitude REAL,
+            timestamp TEXT
+        )
+    ''')
     conn.execute('''
         INSERT INTO diagnosis (symptoms, temperature, heartrate, bloodpressure, latitude, longitude, timestamp)
         VALUES (?, ?, ?, ?, ?, ?, ?)

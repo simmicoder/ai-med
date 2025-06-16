@@ -1,30 +1,30 @@
-from flask import Flask, render_template, request, jsonify
-import sqlite3, datetime, random
+from flask import Flask, render_template, request
+import sqlite3
+import datetime
+import random
 
 app = Flask(__name__, template_folder="../templates", static_folder="../static")
 
 def get_db_connection():
-    conn = sqlite3.connect("../databases/meds.db")
+    # ✅ On Render, only /tmp is writable
+    conn = sqlite3.connect("/tmp/meds.db")
     conn.row_factory = sqlite3.Row
     return conn
 
-def generate_fake_vitals():
+# Simulate auto vitals
+def simulate_vitals():
     return {
-        "Temperature": f"{round(random.uniform(97.5, 99.5), 1)} °F",
+        "Temperature": f"{round(random.uniform(36.5, 38.5), 1)} °C",
         "Heart Rate": f"{random.randint(60, 100)} bpm",
-        "Blood Pressure": f"{random.randint(110, 130)}/{random.randint(70, 85)} mmHg",
-        "Latitude": "28.6139",
-        "Longitude": "77.2090"
+        "Blood Pressure": f"{random.randint(100, 130)}/{random.randint(70, 85)} mmHg",
+        "Latitude": f"{round(random.uniform(-90, 90), 4)}",
+        "Longitude": f"{round(random.uniform(-180, 180), 4)}"
     }
 
 @app.route("/")
 def home():
-    vitals = generate_fake_vitals()
+    vitals = simulate_vitals()
     return render_template("home.html", vitals=vitals)
-
-@app.route("/vitals")
-def get_vitals():
-    return jsonify(generate_fake_vitals())
 
 @app.route("/check", methods=["POST"])
 def check():
@@ -35,27 +35,46 @@ def check():
     lat = request.form.get("latitude")
     lon = request.form.get("longitude")
 
+    # Vitals for chart + display
     vitals = {
-        "Temperature": temp,
-        "Heart Rate": hr,
-        "Blood Pressure": bp,
-        "Latitude": lat,
-        "Longitude": lon,
+        "Temperature": temp + " °C" if temp else "N/A",
+        "Heart Rate": hr + " bpm" if hr else "N/A",
+        "Blood Pressure": bp if bp else "N/A",
+        "Latitude": lat if lat else "N/A",
+        "Longitude": lon if lon else "N/A",
     }
 
-    result = "You may have a mild condition. Please consult a doctor if symptoms persist."
+    # Smart medicine logic
     suggested_meds = []
+    result = "You may have a mild condition. Please consult a doctor if symptoms persist."
 
     if "fever" in symptoms.lower():
         suggested_meds = [
             {"name": "Paracetamol", "dosage": "500mg every 6 hours"},
             {"name": "Ibuprofen", "dosage": "200mg twice daily"}
         ]
-    elif "cough" in symptoms.lower():
-        suggested_meds = [{"name": "Cough Syrup", "dosage": "10ml twice daily"}]
-    elif "headache" in symptoms.lower():
-        suggested_meds = [{"name": "Aspirin", "dosage": "300mg once daily"}]
+        result = "You may have a fever. Take medicine and consult a doctor if it persists."
 
+    elif "cold" in symptoms.lower() or "cough" in symptoms.lower():
+        suggested_meds = [
+            {"name": "Cetirizine", "dosage": "10mg at bedtime"},
+            {"name": "Cough Syrup", "dosage": "2 tsp thrice daily"}
+        ]
+        result = "You seem to have a cold or cough. Take rest and medication."
+
+    elif "headache" in symptoms.lower():
+        suggested_meds = [
+            {"name": "Aspirin", "dosage": "300mg every 4-6 hours"},
+        ]
+        result = "You may have a headache. Stay hydrated."
+
+    elif "pain" in symptoms.lower():
+        suggested_meds = [
+            {"name": "Ibuprofen", "dosage": "400mg every 6 hours"},
+        ]
+        result = "You may be experiencing body pain."
+
+    # Save to database
     conn = get_db_connection()
     conn.execute('''
         CREATE TABLE IF NOT EXISTS diagnosis (
@@ -64,8 +83,8 @@ def check():
             temperature TEXT,
             heartrate TEXT,
             bloodpressure TEXT,
-            latitude REAL,
-            longitude REAL,
+            latitude TEXT,
+            longitude TEXT,
             timestamp TEXT
         )
     ''')

@@ -1,160 +1,129 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>AI Medibot - Health Diagnosis</title>
-    <link rel="stylesheet" href="/static/style.css">
+    <title>AI Medibot</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
-            background-image: url("/static/bg1.jpg");
+            background: url('/static/health-bg.jpg') no-repeat center center fixed;
             background-size: cover;
-            background-position: center;
-            background-attachment: fixed;
-            color: white;
+            color: #fff;
+            text-align: center;
+            padding: 20px;
         }
         .container {
-            background-color: rgba(0,0,0,0.7);
-            max-width: 700px;
-            margin: 50px auto;
-            padding: 30px;
-            border-radius: 15px;
+            background-color: rgba(0, 0, 0, 0.6);
+            padding: 20px;
+            border-radius: 10px;
+            max-width: 800px;
+            margin: auto;
         }
-        input[type="text"], button {
-            width: 100%;
+        input[type="text"], textarea {
+            width: 90%;
             padding: 10px;
             margin: 10px 0;
-            border-radius: 8px;
             border: none;
+            border-radius: 5px;
         }
         button {
-            background-color: #00c0ff;
+            padding: 10px 20px;
+            border: none;
+            background-color: #28a745;
             color: white;
-            font-weight: bold;
+            font-size: 16px;
+            border-radius: 5px;
             cursor: pointer;
         }
         canvas {
             background-color: white;
-            border-radius: 8px;
             margin-top: 20px;
+            border-radius: 10px;
         }
     </style>
 </head>
 <body>
-<div class="container">
-    <h1>AI Medibot</h1>
-    <p>Enter your symptoms. Vitals are auto-detected and charts update live.</p>
+    <div class="container">
+        <h1>AI Medibot</h1>
+        <form method="post" action="/check">
+            <textarea name="symptoms" placeholder="Describe your symptoms here..." required></textarea><br>
+            <input type="hidden" name="temperature" id="tempInput">
+            <input type="hidden" name="heartrate" id="hrInput">
+            <input type="hidden" name="bloodpressure" id="bpInput">
+            <input type="hidden" name="latitude" id="latInput">
+            <input type="hidden" name="longitude" id="lonInput">
+            <button type="submit">Check</button>
+        </form>
+        <canvas id="vitalsChart" width="600" height="300"></canvas>
+    </div>
 
-    <form action="/check" method="post">
-        <label>Symptoms (comma separated):</label>
-        <input type="text" name="symptoms" required>
+    <script>
+        let vitalsChart;
+        let chartData = {
+            labels: [],
+            datasets: [
+                {
+                    label: 'Temperature (°C)',
+                    data: [],
+                    borderColor: 'red',
+                    fill: false
+                },
+                {
+                    label: 'Heart Rate (bpm)',
+                    data: [],
+                    borderColor: 'blue',
+                    fill: false
+                },
+                {
+                    label: 'Systolic BP',
+                    data: [],
+                    borderColor: 'green',
+                    fill: false
+                }
+            ]
+        };
 
-        <!-- Auto-filled vitals -->
-        <input type="hidden" name="temperature" id="temperature" value="{{ vitals.temperature }}">
-        <input type="hidden" name="heartrate" id="heartrate" value="{{ vitals.heartrate }}">
-        <input type="hidden" name="bloodpressure" id="bloodpressure" value="{{ vitals.bloodpressure }}">
+        const ctx = document.getElementById('vitalsChart').getContext('2d');
+        vitalsChart = new Chart(ctx, {
+            type: 'line',
+            data: chartData,
+            options: {
+                responsive: true,
+                animation: false,
+                scales: {
+                    y: {
+                        beginAtZero: false
+                    }
+                }
+            }
+        });
 
-        <!-- Location auto-detection -->
-        <input type="hidden" name="latitude" id="latitude">
-        <input type="hidden" name="longitude" id="longitude">
+        function fetchVitals() {
+            fetch('/vitals')
+                .then(response => response.json())
+                .then(data => {
+                    const now = new Date().toLocaleTimeString();
+                    chartData.labels.push(now);
+                    if (chartData.labels.length > 10) chartData.labels.shift();
+                    chartData.datasets[0].data.push(data.Temperature);
+                    chartData.datasets[1].data.push(parseInt(data["Heart Rate"]));
+                    chartData.datasets[2].data.push(parseInt(data["Blood Pressure"].split('/')[0]));
+                    chartData.datasets.forEach(ds => {
+                        if (ds.data.length > 10) ds.data.shift();
+                    });
+                    vitalsChart.update();
 
-        <button type="submit">Check Diagnosis</button>
-    </form>
-
-    <h3>Live Vitals Charts</h3>
-    <canvas id="tempChart" width="300" height="100"></canvas>
-    <canvas id="hrChart" width="300" height="100"></canvas>
-    <canvas id="bpChart" width="300" height="100"></canvas>
-</div>
-
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script>
-    const tempCtx = document.getElementById("tempChart").getContext("2d");
-    const hrCtx = document.getElementById("hrChart").getContext("2d");
-    const bpCtx = document.getElementById("bpChart").getContext("2d");
-
-    let labels = [], tempData = [], hrData = [], bpData = [];
-
-    const tempChart = new Chart(tempCtx, {
-        type: 'line',
-        data: {
-            labels: labels,
-            datasets: [{
-                label: 'Temperature (°C)',
-                data: tempData,
-                borderColor: 'orange',
-                borderWidth: 2,
-                fill: false
-            }]
-        }
-    });
-
-    const hrChart = new Chart(hrCtx, {
-        type: 'line',
-        data: {
-            labels: labels,
-            datasets: [{
-                label: 'Heart Rate (bpm)',
-                data: hrData,
-                borderColor: 'lime',
-                borderWidth: 2,
-                fill: false
-            }]
-        }
-    });
-
-    const bpChart = new Chart(bpCtx, {
-        type: 'line',
-        data: {
-            labels: labels,
-            datasets: [{
-                label: 'Blood Pressure (Systolic)',
-                data: bpData,
-                borderColor: 'cyan',
-                borderWidth: 2,
-                fill: false
-            }]
-        }
-    });
-
-    function updateCharts() {
-        const now = new Date().toLocaleTimeString();
-        const temp = (36 + Math.random() * 2).toFixed(1);
-        const hr = Math.floor(70 + Math.random() * 20);
-        const bp = Math.floor(110 + Math.random() * 20);
-
-        document.getElementById("temperature").value = temp;
-        document.getElementById("heartrate").value = hr;
-        document.getElementById("bloodpressure").value = `${bp}/80`;
-
-        if (labels.length >= 10) {
-            labels.shift();
-            tempData.shift();
-            hrData.shift();
-            bpData.shift();
+                    document.getElementById("tempInput").value = data.Temperature;
+                    document.getElementById("hrInput").value = data["Heart Rate"];
+                    document.getElementById("bpInput").value = data["Blood Pressure"];
+                    document.getElementById("latInput").value = data.Latitude;
+                    document.getElementById("lonInput").value = data.Longitude;
+                });
         }
 
-        labels.push(now);
-        tempData.push(temp);
-        hrData.push(hr);
-        bpData.push(bp);
-
-        tempChart.update();
-        hrChart.update();
-        bpChart.update();
-    }
-
-    setInterval(updateCharts, 2000);
-
-    // Auto Location
-    window.onload = function () {
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(function (position) {
-                document.getElementById("latitude").value = position.coords.latitude;
-                document.getElementById("longitude").value = position.coords.longitude;
-            });
-        }
-    }
-</script>
+        setInterval(fetchVitals, 3000); // Update every 3 seconds
+    </script>
 </body>
 </html>

@@ -2,135 +2,67 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Diagnosis Result</title>
-    <link rel="stylesheet" href="/static/style.css">
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-image: url("/static/bg2.jpg");
-            background-size: cover;
-            background-position: center;
-            background-attachment: fixed;
-            color: white;
-        }
-        .container {
-            background-color: rgba(0,0,0,0.7);
-            max-width: 700px;
-            margin: 50px auto;
-            padding: 30px;
-            border-radius: 15px;
-        }
-        canvas {
-            background-color: white;
-            border-radius: 8px;
-            margin-top: 20px;
-        }
-    </style>
+    <title>Diagnosis Result - AI Medibot</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
-<div class="container">
-    <h1>Diagnosis Result</h1>
-    <p><strong>Summary:</strong> {{ result }}</p>
+    <div class="container">
+        <h1>🩺 Diagnosis Result</h1>
+        <p><strong>Summary:</strong> {{ result }}</p>
 
-    <h2>Your Vitals</h2>
-    <ul>
-        {% for key, value in vitals.items() %}
-            <li><strong>{{ key }}:</strong> {{ value }}</li>
-        {% endfor %}
-    </ul>
+        <h2>💊 Medicine Suggestions</h2>
+        {% if medicines %}
+            <ul>
+                {% for med in medicines %}
+                    <li>{{ med.name }} — <em>{{ med.dosage }}</em></li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p>No medicines suggested. Please consult a doctor.</p>
+        {% endif %}
 
-    {% if medicines %}
-    <h2>Suggested Medicines</h2>
-    <ul>
-        {% for med in medicines %}
-            <li>{{ med.name }} — <em>{{ med.dosage }}</em></li>
-        {% endfor %}
-    </ul>
-    {% endif %}
+        <h2>📊 Vitals</h2>
+        <ul>
+            {% for key, value in vitals.items() %}
+                <li><strong>{{ key }}:</strong> {{ value }}</li>
+            {% endfor %}
+        </ul>
 
-    <h3>Live Vitals Chart (Simulated)</h3>
-    <canvas id="tempChart" width="300" height="100"></canvas>
-    <canvas id="hrChart" width="300" height="100"></canvas>
-    <canvas id="bpChart" width="300" height="100"></canvas>
+        <canvas id="vitalsChart" width="600" height="300"></canvas>
+        <br>
+        <a href="/" class="button">🔙 Check Another Symptom</a>
+    </div>
 
-    <br><br>
-    <a href="/">← Diagnose another symptom</a>
-</div>
+    <script>
+        const vitals = {
+            temp: parseFloat("{{ vitals['Temperature'].split(' ')[0] }}"),
+            hr: parseInt("{{ vitals['Heart Rate'].split(' ')[0] }}"),
+            bp: "{{ vitals['Blood Pressure'] }}"
+        };
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script>
-    const tempCtx = document.getElementById("tempChart").getContext("2d");
-    const hrCtx = document.getElementById("hrChart").getContext("2d");
-    const bpCtx = document.getElementById("bpChart").getContext("2d");
+        const bpParts = vitals.bp.split('/');
+        const systolic = parseInt(bpParts[0]) || 0;
+        const diastolic = parseInt(bpParts[1]) || 0;
 
-    let labels = [], tempData = [], hrData = [], bpData = [];
-
-    const tempChart = new Chart(tempCtx, {
-        type: 'line',
-        data: {
-            labels: labels,
-            datasets: [{
-                label: 'Temperature (°C)',
-                data: tempData,
-                borderColor: 'orange',
-                borderWidth: 2,
-                fill: false
-            }]
-        }
-    });
-
-    const hrChart = new Chart(hrCtx, {
-        type: 'line',
-        data: {
-            labels: labels,
-            datasets: [{
-                label: 'Heart Rate (bpm)',
-                data: hrData,
-                borderColor: 'lime',
-                borderWidth: 2,
-                fill: false
-            }]
-        }
-    });
-
-    const bpChart = new Chart(bpCtx, {
-        type: 'line',
-        data: {
-            labels: labels,
-            datasets: [{
-                label: 'Blood Pressure (Systolic)',
-                data: bpData,
-                borderColor: 'cyan',
-                borderWidth: 2,
-                fill: false
-            }]
-        }
-    });
-
-    function updateCharts() {
-        const now = new Date().toLocaleTimeString();
-        const temp = (36 + Math.random() * 2).toFixed(1);
-        const hr = Math.floor(70 + Math.random() * 20);
-        const bp = Math.floor(110 + Math.random() * 20);
-
-        if (labels.length >= 10) {
-            labels.shift();
-            tempData.shift();
-            hrData.shift();
-            bpData.shift();
-        }
-
-        labels.push(now);
-        tempData.push(temp);
-        hrData.push(hr);
-        bpData.push(bp);
-
-        tempChart.update();
-        hrChart.update();
-        bpChart.update();
-    }
-
-    setInterval(updateCharts, 2000);
-</script>
+        const ctx = document.getElementById('vitalsChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: ['Temperature (°C)', 'Heart Rate (bpm)', 'BP Systolic', 'BP Diastolic'],
+                datasets: [{
+                    label: 'Vitals Data',
+                    data: [vitals.temp, vitals.hr, systolic, diastolic],
+                    backgroundColor: ['#ff6961', '#77dd77', '#779ecb', '#cbaacb'],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                scales: {
+                    y: { beginAtZero: true }
+                }
+            }
+        });
+    </script>
 </body>
-</html>
+</h
